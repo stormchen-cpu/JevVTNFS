@@ -1,0 +1,42 @@
+[
+  {
+    "advisory_id": "VULN-DEMO-001",
+    "revision": "1",
+    "source_uri": "https://advisories.example.com/VULN-DEMO-001",
+    "retrieved_at": "2026-10-11T08:00:00+08:00",
+    "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "ecosystem": "npm",
+    "package_name": "demo-package",
+    "affected_ranges": [
+      {
+        "type": "SEMVER",
+        "events": [
+          {"introduced": "0.0.0"},
+          {"fixed": "1.3.0"}
+        ]
+      }
+    ],
+    "trigger_conditions": [
+      "Calls vulnerable parseXml function with untrusted input"
+    ]
+  },
+  {
+    "advisory_id": "VULN-DEMO-002",
+    "revision": "1",
+    "source_uri": "https://advisories.example.com/VULN-DEMO-002",
+    "retrieved_at": "2026-10-11T08:00:00+08:00",
+    "content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "ecosystem": "pypi",
+    "package_name": "py-demo-package",
+    "affected_ranges": [
+      {
+        "type": "ECOSYSTEM",
+        "events": [
+          {"introduced": "1.0.0"},
+          {"fixed": "2.0.0"}
+        ]
+      }
+    ],
+    "trigger_conditions": []
+  }
+]

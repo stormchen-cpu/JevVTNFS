@@ -1,0 +1,54 @@
+[
+  {
+    "observed_at": "2026-10-11T09:00:00+08:00",
+    "asset_id": "asset-demo-1",
+    "deployment_id": "deploy-demo-1",
+    "ecosystem": "npm",
+    "package_name": "demo-package",
+    "package_version": "1.2.3",
+    "vulnerability_id": "VULN-DEMO-001",
+    "source_finding_id": "scan-demo-1",
+    "scanner_severity": "HIGH",
+    "dependency_path": "demo-app > demo-package",
+    "purl": "pkg:npm/demo-package@1.2.3"
+  },
+  {
+    "observed_at": "2026-10-11T09:00:00+08:00",
+    "asset_id": "asset-demo-2",
+    "deployment_id": "deploy-demo-2",
+    "ecosystem": "pypi",
+    "package_name": "py-demo-package",
+    "package_version": "2.5.0",
+    "vulnerability_id": "VULN-DEMO-002",
+    "source_finding_id": "scan-demo-2",
+    "scanner_severity": "MEDIUM",
+    "dependency_path": "backend > py-demo-package",
+    "purl": "pkg:pypi/py-demo-package@2.5.0"
+  },
+  {
+    "observed_at": "2026-10-11T09:05:00+08:00",
+    "asset_id": "asset-demo-1",
+    "deployment_id": "deploy-demo-1",
+    "ecosystem": "npm",
+    "package_name": "unknown-package",
+    "package_version": null,
+    "vulnerability_id": "VULN-DEMO-003",
+    "source_finding_id": "scan-demo-3",
+    "scanner_severity": "LOW",
+    "dependency_path": null,
+    "purl": null
+  },
+  {
+    "observed_at": "2026-10-11T09:10:00+08:00",
+    "asset_id": null,
+    "deployment_id": null,
+    "ecosystem": "npm",
+    "package_name": "demo-package",
+    "package_version": "1.2.3",
+    "vulnerability_id": "VULN-DEMO-001",
+    "source_finding_id": "scan-demo-4",
+    "scanner_severity": "HIGH",
+    "dependency_path": null,
+    "purl": null
+  }
+]

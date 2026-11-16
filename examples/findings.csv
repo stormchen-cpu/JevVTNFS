@@ -1,0 +1,5 @@
+observed_at,asset_id,deployment_id,ecosystem,package_name,package_version,vulnerability_id,source_finding_id,scanner_severity,dependency_path,purl
+2026-10-11T09:00:00+08:00,asset-demo-1,deploy-demo-1,npm,demo-package,1.2.3,VULN-DEMO-001,scan-demo-1,HIGH,demo-app > demo-package,pkg:npm/demo-package@1.2.3
+2026-10-11T09:00:00+08:00,asset-demo-2,deploy-demo-2,pypi,py-demo-package,2.5.0,VULN-DEMO-002,scan-demo-2,MEDIUM,backend > py-demo-package,pkg:pypi/py-demo-package@2.5.0
+2026-10-11T09:05:00+08:00,asset-demo-1,deploy-demo-1,npm,unknown-package,,VULN-DEMO-003,scan-demo-3,LOW,,
+2026-10-11T09:10:00+08:00,,,npm,demo-package,1.2.3,VULN-DEMO-001,scan-demo-4,HIGH,,

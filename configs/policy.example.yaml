@@ -1,0 +1,41 @@
+policy:
+  version: "1.0.0"
+  default_mode: "shadow"
+  default_suppression_days: 30
+
+  # Priority rules based on asset criticality, environment exposure, and scanner severity
+  priority_matrix:
+    high_criticality:
+      production:
+        CRITICAL: "P1"
+        HIGH: "P1"
+        MEDIUM: "P2"
+        LOW: "P3"
+      non_production:
+        CRITICAL: "P2"
+        HIGH: "P2"
+        MEDIUM: "P3"
+        LOW: "P4"
+    standard_criticality:
+      production:
+        CRITICAL: "P1"
+        HIGH: "P2"
+        MEDIUM: "P3"
+        LOW: "P4"
+      non_production:
+        CRITICAL: "P2"
+        HIGH: "P3"
+        MEDIUM: "P4"
+        LOW: "P4"
+
+  # Prohibited exclusion evidence: these facts alone MUST NOT be used to conclude NOT_AFFECTED
+  prohibited_exclusions:
+    - "intranet_only"
+    - "waf_present"
+    - "no_upload_endpoint"
+
+  # Model calibration requirements for active automated suppression
+  active_suppression:
+    require_zero_conflicts: true
+    require_zero_missing_fields: true
+    min_model_confidence: 0.95

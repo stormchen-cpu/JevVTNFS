@@ -1,0 +1,19 @@
+app:
+  database_path: "var/triage.db"
+  raw_dir: "var/raw"
+  reports_dir: "var/reports"
+  datasets_dir: "var/datasets"
+  models_dir: "var/models"
+  default_timezone: "Asia/Taipei"
+  log_level: "INFO"
+
+policy_file: "configs/policy.example.yaml"
+egress_file: "configs/egress.example.yaml"
+
+backend:
+  type: "fake"  # 'fake' or 'api'
+  api_provider: "openai-compatible"
+  api_base_url: "https://api.openai.com/v1"
+  model_name: "gpt-4o-mini"
+  timeout_seconds: 15
+  max_retries: 2

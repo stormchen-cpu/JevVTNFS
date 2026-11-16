@@ -1,0 +1,14 @@
+training:
+  model_name: "unsloth/Llama-3.2-3B-Instruct"
+  dataset_path: "var/datasets/ground_truth.json"
+  output_dir: "var/models/fast_decision_model"
+  max_seq_length: 2048
+  lora_r: 16
+  lora_alpha: 16
+  lora_dropout: 0.05
+  learning_rate: 2.0e-4
+  batch_size: 4
+  epochs: 3
+  calibration:
+    method: "temperature_scaling"
+    target_metric: "brier_score"

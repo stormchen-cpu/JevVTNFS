@@ -1,0 +1,51 @@
+[
+  {
+    "snapshot_id": "snap-deploy-demo-1",
+    "asset_id": "asset-demo-1",
+    "deployment_id": "deploy-demo-1",
+    "environment": "production",
+    "criticality": "high",
+    "artifact_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "components": [
+      {
+        "name": "demo-package",
+        "ecosystem": "npm",
+        "version": "1.2.3",
+        "dependency_path": "demo-app > demo-package"
+      },
+      {
+        "name": "safe-lib",
+        "ecosystem": "npm",
+        "version": "2.0.0",
+        "dependency_path": "demo-app > safe-lib"
+      }
+    ],
+    "configuration": {
+      "network_facing": false,
+      "waf_enabled": true,
+      "node_version": "18.17.0"
+    },
+    "observed_at": "2026-10-11T08:30:00+08:00"
+  },
+  {
+    "snapshot_id": "snap-deploy-demo-2",
+    "asset_id": "asset-demo-2",
+    "deployment_id": "deploy-demo-2",
+    "environment": "staging",
+    "criticality": "standard",
+    "artifact_digest": "sha256:5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5",
+    "components": [
+      {
+        "name": "py-demo-package",
+        "ecosystem": "pypi",
+        "version": "2.5.0",
+        "dependency_path": "backend > py-demo-package"
+      }
+    ],
+    "configuration": {
+      "network_facing": true,
+      "waf_enabled": false
+    },
+    "observed_at": "2026-10-11T08:35:00+08:00"
+  }
+]

@@ -1,0 +1,13 @@
+evaluation:
+  dataset_path: "var/datasets/evaluation_ground_truth.json"
+  split:
+    train_ratio: 0.70
+    val_ratio: 0.15
+    test_ratio: 0.15
+    group_by: "issue_key"  # Strict zero-leakage grouping
+    seed: 42
+  metrics:
+    - "false_negative_rate"    # Leakage of real vulnerabilities erroneously suppressed
+    - "suppression_error_rate" # Suppressed items that were actually affected
+    - "automated_coverage"     # Ratio of items auto-triaged without human review
+    - "workload_reduction"     # Reduction in review volume compared to baseline

@@ -1,0 +1,26 @@
+egress:
+  version: "1.0.0"
+  enabled: true
+
+  # Allowed fields that can be included in external payload
+  allowed_fields:
+    - "vulnerability_id"
+    - "ecosystem"
+    - "package_name"
+    - "package_version"
+    - "abstract_environment"  # e.g., PRODUCTION, STAGING, DEVELOPMENT
+    - "approved_facts"        # e.g., java_major_version, node_runtime
+
+  # Fields and patterns to unconditionally strip or mask
+  prohibited_patterns:
+    - regex: "\\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\b"
+      name: "ipv4_address"
+    - regex: "(?i)[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}"
+      name: "email_address"
+    - regex: "(?i)(?:api[_-]?key|secret|password|token)\\s*[:=]\\s*['\"]?[a-zA-Z0-9_\\-]{16,}['\"]?"
+      name: "secrets"
+    - regex: "(?:/home/|/Users/|/var/log/|C:\\\\)[a-zA-Z0-9_./\\\\]+"
+      name: "internal_filepath"
+
+  # Free text handling policy
+  allow_unvetted_free_text: false  # Block egress if free text contains unapproved context
