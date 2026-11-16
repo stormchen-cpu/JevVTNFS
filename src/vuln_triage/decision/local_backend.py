@@ -102,10 +102,12 @@ class LocalDecisionBackend:
 
         # Apply temperature scaling calibration
         calibrated_probs = self._softmax_temperature(logits, self.temperature)
+        confidence = max(calibrated_probs.values()) if calibrated_probs else None
 
         return Prediction(
             suggested_assessment=decision_label,
             probabilities=calibrated_probs,
+            confidence=confidence,
             reason_code=reason_code,
             evidence_ids=local_cited_ids,
             backend_id=self.backend_id,
@@ -113,6 +115,7 @@ class LocalDecisionBackend:
             input_hash=request.input_hash,
             status="SUCCESS",
         )
+
 
     def _softmax_temperature(self, logits: Dict[str, float], temp: float) -> Dict[str, float]:
         """Applies softmax with temperature scaling calibration."""

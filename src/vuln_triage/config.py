@@ -18,12 +18,14 @@ class AppConfig(BaseModel):
 
 
 class BackendConfig(BaseModel):
-    type: str = "fake"  # 'fake' or 'api'
-    api_provider: str = "openai-compatible"
-    api_base_url: str = "https://api.openai.com/v1"
-    model_name: str = "gpt-4o-mini"
+    type: str = "gemini-decision"  # 'fake', 'api', 'local', or 'gemini-decision'
+    api_provider: str = "google-gemini-decisions"
+    api_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    model_name: str = "gemini-decision-1"
     timeout_seconds: int = 15
     max_retries: int = 2
+    confidence_threshold: float = 0.80
+    fallback_to_mock: bool = True
     api_key: Optional[str] = None
 
 
@@ -78,6 +80,7 @@ class PolicyConfig(BaseModel):
     version: str = "1.0.0"
     default_mode: str = "shadow"
     default_suppression_days: int = 30
+    decision_confidence_threshold: float = 0.80
     priority_matrix: PriorityMatrixConfig = Field(default_factory=PriorityMatrixConfig)
     prohibited_exclusions: List[str] = Field(
         default_factory=lambda: ["intranet_only", "waf_present", "no_upload_endpoint"]
@@ -90,21 +93,53 @@ class ProhibitedPattern(BaseModel):
     name: str
 
 
+DEFAULT_PROHIBITED_PATTERNS = [
+    ProhibitedPattern(
+        regex=r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b",
+        name="ipv4_address",
+    ),
+    ProhibitedPattern(
+        regex=r"(?i)[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}",
+        name="email_address",
+    ),
+    ProhibitedPattern(
+        regex=r"(?i)(?:api[_-]?key|secret|password|token)\s*[:=]\s*['\"]?[a-zA-Z0-9_\-]{16,}['\"]?",
+        name="secrets",
+    ),
+    ProhibitedPattern(
+        regex=r"(?:/home/|/Users/|/var/log/|C:\\)[a-zA-Z0-9_./\\]+",
+        name="internal_filepath",
+    ),
+]
+
+
 class EgressConfig(BaseModel):
     version: str = "1.0.0"
     enabled: bool = True
     allowed_fields: List[str] = Field(
         default_factory=lambda: [
             "vulnerability_id",
+            "cve_id",
+            "euvd_id",
             "ecosystem",
             "package_name",
             "package_version",
+            "severity",
+            "cvss_score",
+            "is_actively_exploited",
+            "description",
+            "pv_count",
+            "product_count",
             "abstract_environment",
             "approved_facts",
+            "trigger_conditions",
         ]
     )
-    prohibited_patterns: List[ProhibitedPattern] = Field(default_factory=list)
+    prohibited_patterns: List[ProhibitedPattern] = Field(
+        default_factory=lambda: list(DEFAULT_PROHIBITED_PATTERNS)
+    )
     allow_unvetted_free_text: bool = False
+
 
 
 class RootConfig(BaseModel):
@@ -157,10 +192,16 @@ def load_config(config_path: Optional[str | Path] = None) -> RootConfig:
             root_dict["backend"] = {}
         root_dict["backend"]["type"] = os.getenv("TRIAGE_BACKEND_TYPE")
 
-    if os.getenv("TRIAGE_API_KEY"):
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("TRIAGE_API_KEY")
+    if gemini_key:
         if "backend" not in root_dict:
             root_dict["backend"] = {}
-        root_dict["backend"]["api_key"] = os.getenv("TRIAGE_API_KEY")
+        root_dict["backend"]["api_key"] = gemini_key
+
+    if os.getenv("TRIAGE_MODEL_NAME"):
+        if "backend" not in root_dict:
+            root_dict["backend"] = {}
+        root_dict["backend"]["model_name"] = os.getenv("TRIAGE_MODEL_NAME")
 
     if os.getenv("TRIAGE_API_BASE_URL"):
         if "backend" not in root_dict:

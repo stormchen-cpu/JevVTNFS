@@ -1,5 +1,5 @@
 evaluation:
-  dataset_path: "var/datasets/evaluation_ground_truth.json"
+  dataset_path: "examples/triage_dataset.jsonl"
   split:
     train_ratio: 0.70
     val_ratio: 0.15

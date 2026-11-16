@@ -2,6 +2,7 @@ policy:
   version: "1.0.0"
   default_mode: "shadow"
   default_suppression_days: 30
+  decision_confidence_threshold: 0.80
 
   # Priority rules based on asset criticality, environment exposure, and scanner severity
   priority_matrix:

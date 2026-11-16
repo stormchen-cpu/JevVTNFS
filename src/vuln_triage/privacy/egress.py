@@ -84,10 +84,31 @@ class EgressGateway:
         else:
             sanitized_data["abstract_environment"] = "UNKNOWN"
 
-        # 3. Advisory trigger conditions (publicly known condition summaries)
+        # 3. Advisory trigger conditions & public CVE metadata
         if bundle.advisory:
             sanitized_data["trigger_conditions"] = bundle.advisory.trigger_conditions
             allowed_fields.append("trigger_conditions")
+
+            for field_name in (
+                "cve_id",
+                "euvd_id",
+                "cvss_score",
+                "is_actively_exploited",
+                "description",
+            ):
+                val = getattr(bundle.advisory, field_name, None)
+                if val is not None and field_name in self.config.allowed_fields:
+                    if isinstance(val, str):
+                        leak = self._detect_prohibited_patterns(val, is_cve_description=(field_name == "description"))
+                        if leak:
+                            return EgressPayload(
+                                payload_id=f"egress-blocked-{bundle.bundle_id[:8]}",
+                                is_blocked=True,
+                                block_reason=f"Prohibited pattern '{leak}' detected in advisory.{field_name}.",
+                                stripped_fields=stripped_fields,
+                            )
+                    sanitized_data[field_name] = val
+                    allowed_fields.append(field_name)
 
         # 4. Filter and map evidence items
         sanitized_evidence: List[Dict[str, Any]] = []
@@ -117,10 +138,23 @@ class EgressGateway:
         sanitized_data["evidence"] = sanitized_evidence
         allowed_fields.append("evidence")
 
-        # 5. Check free-form text in raw payload
+        # 5. Check free-form text and whitelisted fields in raw payload
         if finding.raw_payload:
             for k, v in finding.raw_payload.items():
-                if k not in self.config.allowed_fields:
+                if k in self.config.allowed_fields and k not in sanitized_data:
+                    # Whitelisted raw payload fields (e.g. severity, pv_count, product_count)
+                    if isinstance(v, str):
+                        leak = self._detect_prohibited_patterns(v, is_cve_description=(k == "description"))
+                        if leak:
+                            return EgressPayload(
+                                payload_id=f"egress-blocked-{bundle.bundle_id[:8]}",
+                                is_blocked=True,
+                                block_reason=f"Prohibited pattern '{leak}' detected in finding.raw_payload.{k}.",
+                                stripped_fields=stripped_fields,
+                            )
+                    sanitized_data[k] = v
+                    allowed_fields.append(k)
+                elif k not in self.config.allowed_fields:
                     stripped_fields.append(f"finding.raw_payload.{k}")
                     if isinstance(v, str) and len(v) > 100:
                         # Potentially unvetted free-form text
@@ -149,8 +183,25 @@ class EgressGateway:
             output_hash=output_hash,
         )
 
-    def _detect_prohibited_patterns(self, text: str) -> Optional[str]:
+    def _detect_prohibited_patterns(self, text: str, is_cve_description: bool = False) -> Optional[str]:
         for name, pattern in self._compiled_patterns:
-            if pattern.search(text):
-                return name
+            if is_cve_description:
+                # For public CVE descriptions, check secrets, email addresses, and internal user file paths
+                if name in ("secrets", "email_address", "internal_filepath"):
+                    if pattern.search(text):
+                        return name
+                elif name == "ipv4_address":
+                    # Check if text contains a private RFC1918 / sensitive corporate IP
+                    # while allowing loopback/unspecified (0.0.0.0, 127.0.0.1), link-local doc (169.254.x.x), or dotted version numbers (e.g. 1.2.0.3, 1.3.6.1)
+                    for match in pattern.finditer(text):
+                        ip_str = match.group(0)
+                        if (
+                            ip_str.startswith("10.")
+                            or ip_str.startswith("192.168.")
+                            or re.match(r"^172\.(1[6-9]|2[0-9]|3[0-1])\.", ip_str)
+                        ):
+                            return name
+            else:
+                if pattern.search(text):
+                    return name
         return None

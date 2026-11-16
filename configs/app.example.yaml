@@ -11,9 +11,12 @@ policy_file: "configs/policy.example.yaml"
 egress_file: "configs/egress.example.yaml"
 
 backend:
-  type: "fake"  # 'fake' or 'api'
-  api_provider: "openai-compatible"
-  api_base_url: "https://api.openai.com/v1"
-  model_name: "gpt-4o-mini"
+  type: "gemini-decision"  # 'fake', 'api', 'local', or 'gemini-decision'
+  api_provider: "google-gemini-decisions"
+  api_base_url: "https://generativelanguage.googleapis.com/v1beta"
+  model_name: "gemini-decision-1"
   timeout_seconds: 15
   max_retries: 2
+  confidence_threshold: 0.80
+  fallback_to_mock: true
+

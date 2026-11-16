@@ -5,11 +5,20 @@ egress:
   # Allowed fields that can be included in external payload
   allowed_fields:
     - "vulnerability_id"
+    - "cve_id"
+    - "euvd_id"
     - "ecosystem"
     - "package_name"
     - "package_version"
+    - "severity"
+    - "cvss_score"
+    - "is_actively_exploited"
+    - "description"
+    - "pv_count"
+    - "product_count"
     - "abstract_environment"  # e.g., PRODUCTION, STAGING, DEVELOPMENT
     - "approved_facts"        # e.g., java_major_version, node_runtime
+    - "trigger_conditions"
 
   # Fields and patterns to unconditionally strip or mask
   prohibited_patterns:

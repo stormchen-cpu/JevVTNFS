@@ -103,6 +103,7 @@ class FakeBackend:
             return Prediction(
                 suggested_assessment=Assessment.NOT_AFFECTED,
                 probabilities={"NOT_AFFECTED": 0.96, "AFFECTED": 0.04},
+                confidence=0.96,
                 reason_code="TRIGGER_CONDITION_UNMET",
                 evidence_ids=cited_evidence_ids,
                 backend_id="fake-backend",
@@ -115,6 +116,7 @@ class FakeBackend:
             return Prediction(
                 suggested_assessment=Assessment.AFFECTED,
                 probabilities={"AFFECTED": 0.98, "NOT_AFFECTED": 0.02},
+                confidence=0.98,
                 reason_code="CONFIRMED_VERSION_AFFECTED",
                 evidence_ids=cited_evidence_ids,
                 backend_id="fake-backend",
@@ -126,6 +128,7 @@ class FakeBackend:
             return Prediction(
                 suggested_assessment=Assessment.NOT_AFFECTED,
                 probabilities={"NOT_AFFECTED": 0.96, "AFFECTED": 0.04},
+                confidence=0.96,
                 reason_code="CONFIRMED_VERSION_OUTSIDE_RANGE",
                 evidence_ids=cited_evidence_ids,
                 backend_id="fake-backend",
@@ -137,6 +140,7 @@ class FakeBackend:
             return Prediction(
                 suggested_assessment=Assessment.UNKNOWN,
                 probabilities=None,
+                confidence=0.50,
                 reason_code="INSUFFICIENT_EVIDENCE",
                 evidence_ids=cited_evidence_ids,
                 backend_id="fake-backend",
@@ -144,3 +148,4 @@ class FakeBackend:
                 input_hash=request.input_hash,
                 status="SUCCESS",
             )
+

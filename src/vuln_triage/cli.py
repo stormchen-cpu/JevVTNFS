@@ -106,8 +106,23 @@ def cmd_import(ctx: click.Context, path: str, kind: str, source: str) -> None:
     help="Execution mode (shadow: record suggestions only; active: enable automated suppressions).",
 )
 @click.option("--import-id", default=None, help="Filter by specific import ID.")
+@click.option("--limit", type=int, default=None, help="Maximum number of observations to process.")
+@click.option(
+    "--all",
+    "process_all",
+    is_flag=True,
+    default=False,
+    help="Process all observations including already labeled ground-truth items.",
+)
 @click.pass_context
-def cmd_run(ctx: click.Context, batch_id: str, mode: str, import_id: Optional[str]) -> None:
+def cmd_run(
+    ctx: click.Context,
+    batch_id: str,
+    mode: str,
+    import_id: Optional[str],
+    limit: Optional[int],
+    process_all: bool,
+) -> None:
     """執行漏洞分流評估與處置建議"""
     cfg: RootConfig = ctx.obj["config"]
     db: Database = ctx.obj["db"]
@@ -115,8 +130,16 @@ def cmd_run(ctx: click.Context, batch_id: str, mode: str, import_id: Optional[st
 
     service = TriageService(cfg, db=db)
     run_mode = RunMode(mode.lower())
+    vex_filter = None if process_all else "under_investigation"
 
-    summary = service.run_batch(batch_id=batch_id, mode=run_mode, import_id=import_id)
+    summary = service.run_batch(
+        batch_id=batch_id,
+        mode=run_mode,
+        import_id=import_id,
+        vex_status_filter=vex_filter,
+        limit=limit,
+    )
+
 
     click.echo(f"Batch '{batch_id}' execution completed in mode [{mode}]:")
     click.echo(f"  - Total processed: {summary.total_processed}")

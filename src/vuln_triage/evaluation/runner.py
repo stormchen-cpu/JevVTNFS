@@ -41,13 +41,37 @@ def run_evaluation(
     dataset_path_str = eval_section.get("dataset_path", "var/datasets/evaluation_ground_truth.json")
     dataset_path = Path(dataset_path_str)
 
+    is_jsonl = dataset_path.suffix.lower() == ".jsonl"
+
     if not dataset_path.exists():
+        if is_jsonl:
+            raise FileNotFoundError(f"Evaluation dataset JSONL not found: {dataset_path}")
         # If ground truth dataset does not exist yet, build synthetic benchmark items for offline testing
         dataset = _build_default_benchmark_dataset()
         dataset_path.parent.mkdir(parents=True, exist_ok=True)
         dataset_path.write_text(json.dumps(dataset, indent=2, ensure_ascii=False), encoding="utf-8")
     else:
-        dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+        if is_jsonl:
+            dataset = []
+            for line in dataset_path.read_text(encoding="utf-8").splitlines():
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                r = json.loads(stripped)
+                if r.get("vex_status") in ("affected", "not_affected"):
+                    cname = r.get("component_name") or r.get("package_name") or "unknown"
+                    cve = r.get("cve_id") or r.get("vulnerability_id") or "unknown"
+                    issue_key = f"iss-{cname.lower()}-{cve.upper()}"
+                    gt_assessment = "AFFECTED" if r["vex_status"] == "affected" else "NOT_AFFECTED"
+                    sample = {
+                        "issue_key": issue_key,
+                        "ground_truth_assessment": gt_assessment,
+                        "is_jsonl_item": True,
+                        **r,
+                    }
+                    dataset.append(sample)
+        else:
+            dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
 
     split_cfg = eval_section.get("split", {})
     train_ratio = split_cfg.get("train_ratio", 0.70)
@@ -63,22 +87,51 @@ def run_evaluation(
         seed=seed,
     )
 
-    active_backend = backend or FakeBackend()
-
-    test_records: List[Dict[str, Any]] = []
-    for item in test_set:
-        gt_assessment = item.get("ground_truth_assessment", "UNKNOWN")
-        # In test mode, evaluate with backend or rule logic
-        is_affected = item.get("version_affected", False)
-        if is_affected:
-            pred_assessment = "AFFECTED"
-            action = "PRIORITIZE_REMEDIATION" if item.get("criticality") == "high" else "SCHEDULE_REMEDIATION"
-        elif item.get("version_unaffected", False):
-            pred_assessment = "NOT_AFFECTED"
-            action = "SUPPRESS_UNTIL"
+    r_cfg = root_config or load_config()
+    if backend is not None:
+        active_backend = backend
+    else:
+        if r_cfg.backend.type in ("gemini-decision", "gemini-decision-1"):
+            from vuln_triage.decision.gemini_decision_backend import GeminiDecisionBackend
+            active_backend = GeminiDecisionBackend(r_cfg.backend)
         else:
-            pred_assessment = "UNKNOWN"
-            action = "HUMAN_REVIEW"
+            active_backend = FakeBackend()
+
+    from vuln_triage.privacy.egress import EgressGateway
+    from vuln_triage.evidence.assembler import assemble_evidence
+    from vuln_triage.decision.state_builder import build_decision_input
+    from vuln_triage.policy.engine import evaluate_policy
+    from vuln_triage.ingest.readers import _parse_jsonl_finding_row
+
+    gateway = EgressGateway(r_cfg.egress)
+    test_records: List[Dict[str, Any]] = []
+
+    for idx, item in enumerate(test_set, start=1):
+        gt_assessment = item.get("ground_truth_assessment", "UNKNOWN")
+
+        if item.get("is_jsonl_item"):
+            # Run through actual pipeline: finding observation -> advisory -> evidence -> egress -> backend -> policy
+            obs, adv = _parse_jsonl_finding_row(item, source="evaluation", default_tz="Asia/Taipei", raw_ref=f"eval:{idx}", row_idx=idx)
+            bundle = assemble_evidence(finding=obs, deployment=None, advisory=adv, policy_config=r_cfg.policy)
+            egress_payload = gateway.prepare(bundle)
+            prediction = None
+            if not egress_payload.is_blocked:
+                decision_input = build_decision_input(bundle)
+                prediction = active_backend.predict(decision_input, egress_payload)
+            decision = evaluate_policy(evidence=bundle, prediction=prediction, policy=r_cfg.policy)
+            pred_assessment = decision.assessment.value
+            action = decision.proposed_action.value
+        else:
+            is_affected = item.get("version_affected", False)
+            if is_affected:
+                pred_assessment = "AFFECTED"
+                action = "PRIORITIZE_REMEDIATION" if item.get("criticality") == "high" else "SCHEDULE_REMEDIATION"
+            elif item.get("version_unaffected", False):
+                pred_assessment = "NOT_AFFECTED"
+                action = "SUPPRESS_UNTIL"
+            else:
+                pred_assessment = "UNKNOWN"
+                action = "HUMAN_REVIEW"
 
         test_records.append({
             "issue_key": item.get("issue_key"),

@@ -92,34 +92,30 @@ TRIAGE_CONFIG=configs/app.example.yaml
 
 系統支援三種資料匯入合約：掃描發現 (Findings)、部署快照 (Deployments) 與漏洞公告 (Advisories)。
 
-### 4.1 掃描結果發現 (`findings.csv` / `findings.json`)
-支援平面 CSV 或相同欄位的 JSON 陣列。
+### 4.1 掃描結果發現 (`findings.csv` / `findings.json` / `triage_dataset.jsonl`)
+支援平面 CSV、標準 Findings JSON 陣列，以及 VEX/CVE JSON Lines (`.jsonl`) 格式。
 
-#### 欄位規範
-- **必要欄位**（不得為空）：
-  - `observed_at`：ISO 8601 時間字串（**必須包含時區**，例如 `2026-10-11T09:00:00+08:00`）
-  - `ecosystem`：套件生態系（如 `npm`, `pypi`, `maven`）
-  - `package_name`：套件名稱
-  - `vulnerability_id`：漏洞識別碼（如 `CVE-2024-XXXX` 或內部編號）
-- **結構欄位**（欄位必須存在，但容許空值；為空時系統記錄為不完整觀測並送交人工審核）：
-  - `asset_id`：資產識別碼
-  - `deployment_id`：部署實例識別碼
-  - `package_version`：套件版本
-- **選填欄位**：
-  - `source_finding_id`：掃描器原始編號
-  - `scanner_severity`：掃描器回報之嚴重度（`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`）
-  - `dependency_path`：依賴路徑
-  - `purl`：Package URL
-
-#### CSV 範例 (`examples/findings.csv`)
-```csv
-observed_at,asset_id,deployment_id,ecosystem,package_name,package_version,vulnerability_id,source_finding_id,scanner_severity,dependency_path,purl
-2026-10-11T09:00:00+08:00,asset-demo-1,deploy-demo-1,npm,demo-package,1.2.3,VULN-DEMO-001,scan-demo-1,HIGH,demo-app > demo-package,pkg:npm/demo-package@1.2.3
-2026-10-11T09:00:00+08:00,asset-demo-2,deploy-demo-2,pypi,py-demo-package,2.5.0,VULN-DEMO-002,scan-demo-2,MEDIUM,backend > py-demo-package,pkg:pypi/py-demo-package@2.5.0
-2026-10-11T09:05:00+08:00,asset-demo-1,deploy-demo-1,npm,unknown-package,,VULN-DEMO-003,scan-demo-3,LOW,,
+#### 4.1.1 VEX/CVE JSONL 格式 (`examples/triage_dataset.jsonl`)
+每行均為獨立的 JSON 物件，包含軟體元件與公開漏洞描述：
+```json
+{
+  "vex_status": "under_investigation",
+  "component_name": "busybox",
+  "component_version": "1.21.1",
+  "vulnerability_id": "1e131f86-b2a4-4129-9ed8-724b56c9c709",
+  "cve_id": "CVE-2022-48174",
+  "euvd_id": "EUVD-2022-50885",
+  "severity": "CRITICAL",
+  "cvss_score": 9.8,
+  "is_actively_exploited": false,
+  "description": "There is a stack overflow vulnerability in ash.c:6030 in busybox before 1.35...",
+  "pv_count": 1407,
+  "product_count": 1406,
+  "hbom_count": 0
+}
 ```
+> **自動公告合成 (Auto-Synthesized Advisories)**：當匯入 `.jsonl` 發現資料時，系統會自動自每行之 `cve_id`、`description`、`cvss_score`、`is_actively_exploited` 等欄位合成 `AdvisorySnapshot`，並於一次 `triage import` 操作中同時寫入 `observations` 與 `snapshots`，免除另外準備公告檔之負擔！
 
-### 4.2 部署快照 (`examples/products.json`)
 定義資產環境與部署組態（JSON 陣列）：
 ```json
 [
@@ -208,8 +204,14 @@ triage import examples/findings.csv --kind findings --source generic
 對已匯入的觀測資料進行關聯分析、比對版本規則、調用模型並計算處置建議。
 
 ```bash
-# 預設：Shadow 模式 (記錄建議，不自動啟用抑制)
+# 預設：Shadow 模式 (記錄建議，不自動啟用抑制；預設過濾 under_investigation 項目)
 triage run --batch batch-2026-11 --mode shadow
+
+# 批次限制筆數處理 (例如先處理前 10 筆進行驗證)
+triage run --batch batch-test --mode shadow --limit 10
+
+# 處理全量觀測資料 (包含已標註 affected / not_affected 之標註資料)
+triage run --batch batch-full --mode shadow --all
 
 # 開放自動抑制模式 (僅限通過評估後使用)
 triage run --batch batch-2026-11 --mode active
@@ -229,6 +231,7 @@ triage report --batch batch-2026-11 --format csv --output var/reports/triage_rep
 # 匯出 JSON 報表
 triage report --batch batch-2026-11 --format json --output var/reports/triage_report.json
 ```
+
 
 #### 報表核心輸出欄位
 - `assessment`：`AFFECTED`（受影響）、`NOT_AFFECTED`（不受影響）、`UNKNOWN`（未知/缺少證據）
@@ -353,16 +356,26 @@ triage evaluate --config configs/evaluation.example.yaml
 
 請透過 `triage review export` 查看具體 `reason_codes`（例如 `MISSING_FIELDS:package_version`）。
 
-### Q3: 如何切換使用真實外部 AI API（如 Gemini / OpenAI）？
-在 `.env` 或環境變數中設定：
+### Q3: 如何啟用 Google `gemini-decision-1` 判定模型？
+系統預設後端為 `gemini-decision`，支援使用 Google Gemini Decisions API（`POST /v1beta/decisions`）。
+若尚未設定 API 金鑰，系統會啟用確定性離線啟發式模型（`fallback_to_mock: true`），100% 離線執行並保證零失敗。
+
+若需啟用線上 `gemini-decision-1` 模型，於 `.env` 中設定：
 ```bash
-export TRIAGE_BACKEND_TYPE=api
-export TRIAGE_API_BASE_URL=https://api.openai.com/v1   # 或 Gemini OpenAI-compatible 端點
-export TRIAGE_API_KEY=your-api-key
-export TRIAGE_MODEL_NAME=gpt-4o-mini
+export GEMINI_API_KEY=your-gemini-api-key
+export TRIAGE_BACKEND_TYPE=gemini-decision
+export TRIAGE_MODEL_NAME=gemini-decision-1
+export TRIAGE_API_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 ```
-系統將自動在通過 `EgressGateway` 脫敏後調用外部模型，並嚴格檢驗其回傳之引用證據是否存在。
+
+**`gemini-decision-1` 核心判定架構**：
+- 在單一次前向傳播中並行評估 3 個原子問題，且不產生輸出文字 Token：
+  1. `overall_assessment` (`choice`: `AFFECTED`, `NOT_AFFECTED`, `UNKNOWN`)
+  2. `is_version_affected` (`noul`: 版本是否真正落入漏洞受影響範圍)
+  3. `requires_specific_trigger` (`noul`: 漏洞利用是否依賴特定非預設組態或平台條件)
+- **校準信賴度閘控 (Confidence Gating)**：若模型輸出之信賴度低於政策閥值（預設 `0.80`），系統主動降級為 `UNKNOWN` 並標記 `LOW_MODEL_CONFIDENCE` 送交人工審核，杜絕幻覺造成的漏判風險。
 
 ---
 
-*文件更新日期：2026-11-10*
+*文件更新日期：2026-11-16*
+

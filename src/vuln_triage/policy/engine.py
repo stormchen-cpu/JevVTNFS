@@ -130,11 +130,22 @@ def evaluate_policy(
             and prediction.suggested_assessment == Assessment.NOT_AFFECTED
             and not has_prohibited_claim
         ):
-            # Decision Model verified conditional trigger is unmet with valid evidence!
-            assessment = Assessment.NOT_AFFECTED
-            reason_codes.append(f"DECISION_MODEL_TRIGGER_UNMET:{prediction.reason_code}")
-            proposed_action = ProposedAction.SUPPRESS_UNTIL
-            expires_at = now_dt + timedelta(days=policy.default_suppression_days)
+            # Check model confidence
+            pred_conf = prediction.confidence
+            if pred_conf is None and prediction.probabilities:
+                pred_conf = max(prediction.probabilities.values())
+
+            if pred_conf is not None and pred_conf < policy.decision_confidence_threshold:
+                assessment = Assessment.UNKNOWN
+                reason_codes.append(f"LOW_MODEL_CONFIDENCE:{pred_conf:.2f}<{policy.decision_confidence_threshold:.2f}")
+                proposed_action = ProposedAction.HUMAN_REVIEW
+                expires_at = None
+            else:
+                # Decision Model verified conditional trigger is unmet with valid evidence!
+                assessment = Assessment.NOT_AFFECTED
+                reason_codes.append(f"DECISION_MODEL_TRIGGER_UNMET:{prediction.reason_code}")
+                proposed_action = ProposedAction.SUPPRESS_UNTIL
+                expires_at = now_dt + timedelta(days=policy.default_suppression_days)
         else:
             # Crucial requirement from SYSTEM_DESIGN.md Section 9:
             # Confirmed affected: prioritize according to policy; never convert to false positive due to intranet/WAF.
@@ -155,8 +166,17 @@ def evaluate_policy(
 
     else:
         # Version was not verified outside affected range.
-        # Check prediction: prohibited claims (WAF/intranet alone) cannot justify NOT_AFFECTED.
-        if prediction and prediction.suggested_assessment == Assessment.NOT_AFFECTED:
+        # Check prediction confidence if prediction exists
+        pred_conf = prediction.confidence if prediction else None
+        if pred_conf is None and prediction and prediction.probabilities:
+            pred_conf = max(prediction.probabilities.values())
+
+        if prediction and pred_conf is not None and pred_conf < policy.decision_confidence_threshold:
+            assessment = Assessment.UNKNOWN
+            reason_codes.append(f"LOW_MODEL_CONFIDENCE:{pred_conf:.2f}<{policy.decision_confidence_threshold:.2f}")
+            proposed_action = ProposedAction.HUMAN_REVIEW
+            expires_at = None
+        elif prediction and prediction.suggested_assessment == Assessment.NOT_AFFECTED:
             if has_prohibited_claim:
                 assessment = Assessment.UNKNOWN
                 reason_codes.append("PROHIBITED_EXCLUSION: WAF or intranet alone cannot justify NOT_AFFECTED without version proof")
@@ -181,6 +201,7 @@ def evaluate_policy(
             reason_codes.append("INSUFFICIENT_EVIDENCE")
             proposed_action = ProposedAction.HUMAN_REVIEW
             expires_at = None
+
 
     return PolicyDecision(
         decision_id=f"dec-{uuid.uuid4().hex[:12]}",

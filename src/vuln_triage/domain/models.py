@@ -103,6 +103,11 @@ class AdvisorySnapshot(BaseModel):
     package_name: Optional[str] = None
     affected_ranges: List[Dict[str, Any]] = Field(default_factory=list)
     trigger_conditions: List[str] = Field(default_factory=list)
+    description: Optional[str] = None
+    cve_id: Optional[str] = None
+    euvd_id: Optional[str] = None
+    cvss_score: Optional[float] = None
+    is_actively_exploited: Optional[bool] = None
 
 
 class EvidenceItem(BaseModel):
@@ -135,6 +140,8 @@ class Prediction(BaseModel):
 
     suggested_assessment: Assessment
     probabilities: Optional[Dict[str, float]] = None
+    confidence: Optional[float] = None
+    sub_decisions: Optional[Dict[str, Any]] = None
     reason_code: str
     evidence_ids: List[str] = Field(default_factory=list)
     backend_id: str

@@ -123,6 +123,25 @@ class Database:
                         ),
                     )
 
+                # Also insert synthesized advisories if any
+                for adv in result.advisories:
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO snapshots (
+                            snapshot_id, snapshot_type, identifier, content_hash, data_json, observed_at, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?);
+                        """,
+                        (
+                            f"adv-{adv.advisory_id}",
+                            "advisory",
+                            adv.advisory_id,
+                            adv.content_hash,
+                            json.dumps(adv.model_dump(mode="json"), ensure_ascii=False),
+                            adv.retrieved_at.isoformat(),
+                            now_str,
+                        ),
+                    )
+
             elif result.kind == "deployments":
                 for dep in result.deployments:
                     identifier = f"{dep.asset_id}:{dep.deployment_id}"
@@ -194,21 +213,29 @@ class Database:
             data["retrieved_at"] = parse_iso_datetime(data["retrieved_at"])
             return AdvisorySnapshot(**data)
 
-    def get_observations(self, import_id: Optional[str] = None) -> List[FindingObservation]:
+    def get_observations(
+        self,
+        import_id: Optional[str] = None,
+        vex_status: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[FindingObservation]:
         with self.get_connection() as conn:
             if import_id:
-                rows = conn.execute(
-                    "SELECT * FROM observations WHERE import_id = ? ORDER BY observed_at ASC;",
-                    (import_id,),
-                ).fetchall()
+                query = "SELECT * FROM observations WHERE import_id = ? ORDER BY observed_at ASC;"
+                rows = conn.execute(query, (import_id,)).fetchall()
             else:
-                rows = conn.execute(
-                    "SELECT * FROM observations ORDER BY observed_at ASC;"
-                ).fetchall()
+                query = "SELECT * FROM observations ORDER BY observed_at ASC;"
+                rows = conn.execute(query).fetchall()
 
             observations: List[FindingObservation] = []
             for r in rows:
                 raw_payload = json.loads(r["raw_json"]) if r["raw_json"] else {}
+                if vex_status is not None:
+                    # If vex_status is present in raw_payload, must match. If raw_payload has no vex_status (e.g. CSV/JSON), include it.
+                    row_vex = raw_payload.get("vex_status")
+                    if row_vex is not None and row_vex != vex_status:
+                        continue
+
                 package = PackageRef(
                     ecosystem=r["ecosystem"],
                     name=r["package_name"],
@@ -230,6 +257,8 @@ class Database:
                     raw_payload=raw_payload,
                 )
                 observations.append(obs)
+                if limit is not None and limit > 0 and len(observations) >= limit:
+                    break
             return observations
 
     def get_decision_by_key(self, decision_key: str) -> Optional[Dict[str, Any]]:

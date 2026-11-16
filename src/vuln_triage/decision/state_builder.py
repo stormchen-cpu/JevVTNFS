@@ -29,7 +29,13 @@ def build_decision_input(bundle: EvidenceBundle) -> DecisionInput:
             "advisory_id": bundle.advisory.advisory_id,
             "affected_ranges": bundle.advisory.affected_ranges,
             "trigger_conditions": bundle.advisory.trigger_conditions,
+            "description": bundle.advisory.description,
+            "cve_id": bundle.advisory.cve_id,
+            "euvd_id": bundle.advisory.euvd_id,
+            "cvss_score": bundle.advisory.cvss_score,
+            "is_actively_exploited": bundle.advisory.is_actively_exploited,
         }
+
 
     evidence_summary = [
         {

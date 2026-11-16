@@ -60,7 +60,10 @@ class TriageService:
         if backend is not None:
             self.backend = backend
         else:
-            if config.backend.type == "api":
+            if config.backend.type in ("gemini-decision", "gemini-decision-1"):
+                from vuln_triage.decision.gemini_decision_backend import GeminiDecisionBackend
+                self.backend = GeminiDecisionBackend(config.backend)
+            elif config.backend.type == "api":
                 self.backend = ApiBackend(config.backend)
             elif config.backend.type == "local":
                 from vuln_triage.decision.local_backend import LocalDecisionBackend
@@ -73,9 +76,12 @@ class TriageService:
         batch_id: str,
         mode: RunMode = RunMode.SHADOW,
         import_id: Optional[str] = None,
+        vex_status_filter: Optional[str] = "under_investigation",
+        limit: Optional[int] = None,
     ) -> BatchRunSummary:
-        observations = self.db.get_observations(import_id=import_id)
+        observations = self.db.get_observations(import_id=import_id, vex_status=vex_status_filter, limit=limit)
         summary = BatchRunSummary(batch_id=batch_id, mode=mode.value)
+
 
         for obs in observations:
             summary.total_processed += 1

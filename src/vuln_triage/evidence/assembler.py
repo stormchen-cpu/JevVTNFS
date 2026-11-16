@@ -39,9 +39,27 @@ def assemble_evidence(
     if not finding.package.version:
         missing_fields.append("package_version")
     if deployment is None:
-        missing_fields.append("deployment_snapshot")
+        if (
+            advisory is not None
+            and bool(advisory.description)
+            and bool(finding.package.name)
+            and bool(finding.package.version)
+        ):
+            evidence_items.append(
+                EvidenceItem(
+                    evidence_id="evi-advisory-description",
+                    kind="advisory_description_available",
+                    value=True,
+                    source_ref=f"advisory:{advisory.advisory_id}",
+                    observed_at=finding.observed_at,
+                    verification_status=VerificationStatus.RULE_VERIFIED,
+                )
+            )
+        else:
+            missing_fields.append("deployment_snapshot")
     if advisory is None:
         missing_fields.append("advisory_snapshot")
+
 
     # 2. Check advisory ecosystem and package consistency
     if advisory:

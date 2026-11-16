@@ -54,3 +54,47 @@ def normalize_ecosystem(ecosystem: str) -> str:
 
 def normalize_vulnerability_id(vuln_id: str) -> str:
     return vuln_id.strip().upper()
+
+
+def infer_ecosystem_from_component(name: str, description: str = "") -> str:
+    cleaned = (name or "").strip().lower()
+    npm_packages = {
+        "axios",
+        "vite",
+        "quasar",
+        "postcss",
+        "browserslist",
+        "brace-expansion",
+        "micromatch",
+        "form-data",
+        "uri-js",
+        "cookie",
+        "content-type",
+        "events",
+        "methods",
+        "defu",
+        "immutable",
+        "eslint",
+        "typescript",
+        "ajv",
+        "chalk",
+        "debug",
+        "echarts",
+        "express",
+        "body-parser",
+        "baseline-browser-mapping",
+        "picomatch",
+    }
+    if cleaned in npm_packages or cleaned.startswith("@"):
+        return "npm"
+    pypi_packages = {"pillow", "requests", "django", "flask", "numpy", "pip"}
+    if cleaned in pypi_packages:
+        return "pypi"
+    go_packages = {"go-redis", "gin", "gorm"}
+    if cleaned in go_packages:
+        return "go"
+    maven_packages = {"spring-core", "log4j", "jackson-databind"}
+    if cleaned in maven_packages:
+        return "maven"
+    return "generic"
+
