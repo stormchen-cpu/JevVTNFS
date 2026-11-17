@@ -71,11 +71,27 @@ def _extract_trigger_conditions(description: str) -> List[str]:
         "requires specific",
         "an authenticated user",
         "authenticated attacker",
+        "when using",
+        "when compiled",
+        "if compiled",
+        "if enabled",
+        "when enabled",
+        "only when",
+        "requires non-default",
+        "unless compiled",
+        "provided that",
+        "only on windows",
+        "only on macos",
+        "when running on",
+        "if configured to",
+        "only if",
+        "in configurations where",
+        "non-default configuration",
     ]
     lowered = description.lower()
-    conditions = []
+    conditions: List[str] = []
     for kw in keywords:
-        if kw in lowered:
+        if kw in lowered and kw not in conditions:
             conditions.append(kw)
     return conditions
 

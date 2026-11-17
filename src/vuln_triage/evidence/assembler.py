@@ -141,18 +141,90 @@ def assemble_evidence(
                 )
             )
 
-        # Check component installed in deployment
-        installed = any(
-            c.get("name", "").lower() == finding.package.name.lower()
+        # Check component installed in deployment and extract technical metadata
+        matched_components = [
+            c
             for c in deployment.components
-        )
-        if installed:
+            if c.get("name", "").lower() == finding.package.name.lower()
+        ]
+        if matched_components:
             evidence_items.append(
                 EvidenceItem(
                     evidence_id="evi-component-installed",
                     kind="component_installed",
                     value=True,
                     source_ref=f"snapshot:{deployment.snapshot_id}",
+                    observed_at=deployment.observed_at,
+                    verification_status=VerificationStatus.RULE_VERIFIED,
+                )
+            )
+            fw_types = sorted({str(c["firmware_type"]) for c in matched_components if c.get("firmware_type")})
+            if fw_types:
+                evidence_items.append(
+                    EvidenceItem(
+                        evidence_id="evi-component-fw-types",
+                        kind="firmware_types",
+                        value=fw_types,
+                        source_ref=f"snapshot:{deployment.snapshot_id}",
+                        observed_at=deployment.observed_at,
+                        verification_status=VerificationStatus.RULE_VERIFIED,
+                    )
+                )
+            comp_types = sorted({str(c["component_type"]) for c in matched_components if c.get("component_type")})
+            if comp_types:
+                evidence_items.append(
+                    EvidenceItem(
+                        evidence_id="evi-component-types",
+                        kind="component_types",
+                        value=comp_types,
+                        source_ref=f"snapshot:{deployment.snapshot_id}",
+                        observed_at=deployment.observed_at,
+                        verification_status=VerificationStatus.RULE_VERIFIED,
+                    )
+                )
+            cpes = sorted({str(c["cpe"]) for c in matched_components if c.get("cpe")})
+            if cpes:
+                evidence_items.append(
+                    EvidenceItem(
+                        evidence_id="evi-component-cpes",
+                        kind="component_cpes",
+                        value=cpes[:10],
+                        source_ref=f"snapshot:{deployment.snapshot_id}",
+                        observed_at=deployment.observed_at,
+                        verification_status=VerificationStatus.RULE_VERIFIED,
+                    )
+                )
+
+        if config.get("firmware_types") and not any(e.kind == "firmware_types" for e in evidence_items):
+            evidence_items.append(
+                EvidenceItem(
+                    evidence_id="evi-deploy-fw-types",
+                    kind="firmware_types",
+                    value=list(config["firmware_types"]),
+                    source_ref=f"snapshot:{deployment.snapshot_id}",
+                    observed_at=deployment.observed_at,
+                    verification_status=VerificationStatus.RULE_VERIFIED,
+                )
+            )
+        if config.get("disabled_features"):
+            evidence_items.append(
+                EvidenceItem(
+                    evidence_id="evi-deploy-disabled-features",
+                    kind="disabled_features",
+                    value=list(config["disabled_features"]),
+                    source_ref=f"snapshot:{deployment.snapshot_id}",
+                    observed_at=deployment.observed_at,
+                    verification_status=VerificationStatus.RULE_VERIFIED,
+                )
+            )
+        cpe_targets_map = config.get("nvd_cpe_targets_by_cve") or {}
+        if finding.vulnerability_id in cpe_targets_map:
+            evidence_items.append(
+                EvidenceItem(
+                    evidence_id="evi-nvd-cpe-targets",
+                    kind="nvd_cpe_targets",
+                    value=list(cpe_targets_map[finding.vulnerability_id]),
+                    source_ref=f"nvd:{finding.vulnerability_id}",
                     observed_at=deployment.observed_at,
                     verification_status=VerificationStatus.RULE_VERIFIED,
                 )

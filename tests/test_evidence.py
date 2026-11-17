@@ -12,6 +12,7 @@ from vuln_triage.domain.models import (
 )
 from vuln_triage.evidence.assembler import assemble_evidence
 from vuln_triage.evidence.rules import (
+    compare_generic_version,
     compare_npm_version,
     compare_pypi_version,
     evaluate_version_range,
@@ -79,3 +80,43 @@ def test_assemble_evidence_missing_fields_and_conflicts(sample_finding: FindingO
     )
     bundle_mismatch = assemble_evidence(finding=sample_finding, advisory=adv_mismatch)
     assert any("Ecosystem mismatch" in c for c in bundle_mismatch.conflicts)
+
+
+def test_generic_version_and_nvd_bounds():
+    assert compare_generic_version("1.1.1n", introduced="1.1.1", fixed="1.1.1w")[0] is True
+    assert compare_generic_version("1.1.1w", introduced="1.1.1", fixed="1.1.1w")[0] is False
+    assert compare_generic_version("1.3.1+insyde26.08.1", fixed="2.0.0")[0] is None
+    assert evaluate_version_range("generic", "7.38.0", [{"events": [{"fixed": "7.86.0"}]}])[0] is True
+    assert evaluate_version_range("generic", "7.86.0", [{"events": [{"fixed": "7.86.0"}]}])[0] is False
+
+
+def test_assemble_evidence_with_gigacra_deployment(sample_finding: FindingObservation):
+    dep = DeploymentSnapshot(
+        snapshot_id="snap-gigacra-test",
+        asset_id=sample_finding.asset_id or "asset-1",
+        deployment_id=sample_finding.deployment_id or "deploy-1",
+        environment="production",
+        criticality="standard",
+        components=[
+            {
+                "name": sample_finding.package.name,
+                "version": sample_finding.package.version,
+                "firmware_type": "BMC",
+                "component_type": "library",
+                "cpe": "cpe:2.3:a:demo:demo-package:1.0.0:*:*:*:*:*:*:*",
+            }
+        ],
+        configuration={
+            "disabled_features": ["NTLM"],
+            "nvd_cpe_targets_by_cve": {sample_finding.vulnerability_id: ["uutils:coreutils:rust"]},
+        },
+        observed_at=sample_finding.observed_at,
+    )
+    bundle = assemble_evidence(finding=sample_finding, deployment=dep, advisory=None)
+    kinds = {e.kind for e in bundle.evidence}
+    assert "component_installed" in kinds
+    assert "firmware_types" in kinds
+    assert "component_types" in kinds
+    assert "component_cpes" in kinds
+    assert "disabled_features" in kinds
+    assert "nvd_cpe_targets" in kinds

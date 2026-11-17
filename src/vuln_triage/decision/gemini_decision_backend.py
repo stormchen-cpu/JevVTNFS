@@ -73,26 +73,35 @@ class GeminiDecisionBackend:
             "overall_assessment": {
                 "type": "choice",
                 "instructions": (
-                    "Based on the component_name, component_version, CVE description, and verified evidence, "
-                    "determine the vulnerability impact assessment for this component."
+                    "Based on package_name, package_version, ecosystem, CVE description, trigger_conditions, "
+                    "and verified evidence items (including version_in_affected_range, component_cpes, "
+                    "nvd_cpe_targets, firmware_types, and disabled_features), determine the vulnerability impact "
+                    "assessment for this package. Ignore pv_count, product_count, waf_present, and intranet_only "
+                    "as standalone exclusion proofs."
                 ),
                 "criteria": {
                     "AFFECTED": (
-                        "The CVE applies to this exact component_name and component_version is within "
-                        "the vulnerable range without any unmet mandatory trigger condition."
+                        "The CVE applies to this exact package_name and ecosystem, package_version is within "
+                        "the vulnerable range, and no mandatory trigger condition is proven unmet by verified evidence."
                     ),
                     "NOT_AFFECTED": (
-                        "The CVE actually targets a different component/product, OR component_version is "
-                        "outside the affected version range (already fixed or prior to introduction), "
-                        "OR verified evidence proves required trigger conditions are unmet."
+                        "The CVE actually targets a different product, vendor, or language/ecosystem "
+                        "(e.g., nvd_cpe_targets or description points to uutils Rust coreutils vs GNU coreutils, "
+                        "or a CMS plugin/unrelated app vs an npm/PyPI library), OR package_version is outside the "
+                        "affected range, OR verified evidence (e.g., disabled_features or incompatible firmware_types "
+                        "for Windows/macOS-only CVEs) proves required trigger conditions are unmet."
                     ),
-                    "UNKNOWN": "Evidence and CVE description are insufficient or ambiguous to conclusively determine impact.",
+                    "UNKNOWN": (
+                        "Evidence and CVE description remain insufficient or ambiguous to conclusively determine "
+                        "impact without risking a false negative."
+                    ),
                 },
             },
             "is_version_affected": {
                 "type": "noul",
                 "instructions": (
-                    "Does the CVE apply to this exact package_name AND does package_version fall within "
+                    "Does the CVE apply to this exact package_name, ecosystem, and vendor/implementation "
+                    "(checking nvd_cpe_targets/component_cpes if present) AND does package_version fall within "
                     "the vulnerable version range described?"
                 ),
             },

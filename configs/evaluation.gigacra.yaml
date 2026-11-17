@@ -1,0 +1,13 @@
+evaluation:
+  dataset_path: "var/datasets/gigacra_ground_truth.jsonl"
+  split:
+    train_ratio: 0.70
+    val_ratio: 0.15
+    test_ratio: 0.15
+    group_by: "issue_key"
+    seed: 42
+  metrics:
+    - "false_negative_rate"
+    - "suppression_error_rate"
+    - "automated_coverage"
+    - "workload_reduction"
